@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ayush Mishra - VFX Portfolio</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- GSAP Core & Observer Plugin -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Observer.min.js"></script>
+    
+    <style>
+        /* Base & Reset */
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #020204; font-family: system-ui, -apple-system, sans-serif; color: #f3f4f6; touch-action: none; overscroll-behavior: none; }
+        
+        /* Loading Screen */
+        #preloader { position: fixed; inset: 0; background: #020204; z-index: 9999; display: flex; align-items: center; justify-content: center; transition: opacity 0.8s ease; }
+        .spinner { width: 40px; height: 40px; border: 3px solid rgba(34, 211, 238, 0.3); border-radius: 50%; border-top-color: #22d3ee; animation: spin 1s ease-in-out infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* 3D Scene Architecture */
+        #scene-container { perspective: 1200px; transform-style: preserve-3d; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 10; }
+        
+        .vfx-section {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            opacity: 0; visibility: hidden; padding: 1rem;
+            /* Hardware acceleration fixes */
+            transform: translateZ(-3000px); 
+            will-change: transform, opacity;
+            backface-visibility: hidden;
+        }
+
+        .vfx-section.active { opacity: 1; visibility: visible; transform: translateZ(0px); }
+
+        /* Optimized Glassmorphism */
+        .glass-panel { 
+            background: rgba(15, 15, 20, 0.45); 
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(34, 211, 238, 0.15); 
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(34, 211, 238, 0.05);
+            max-height: 85vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+            /* Force GPU render for smooth flight */
+            transform: translate3d(0, 0, 0);
+        }
+        
+        .glass-panel::-webkit-scrollbar { width: 4px; }
+        .glass-panel::-webkit-scrollbar-thumb { background: rgba(34, 211, 238, 0.3); border-radius: 10px; }
+
+        /* Typography & VFX */
+        .char { 
+            display: inline-block; color: #ffffff; font-weight: 900;
+            -webkit-text-stroke: 1px rgba(34, 211, 238, 0.8);
+            text-shadow: 0 0 15px rgba(34,211,238,0.5), 0 0 30px rgba(59, 130, 246, 0.3);
+            will-change: transform, opacity;
+        }
+        .word-wrap { display: inline-block; white-space: nowrap; }
+        .timeline-line::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: linear-gradient(to bottom, #22d3ee, transparent); margin-left: 5px; }
+        #warp-flash { position: fixed; inset: 0; background: #22d3ee; opacity: 0; pointer-events: none; z-index: 50; mix-blend-mode: screen; will-change: opacity; }
+
+        /* Navigation */
+        #nav-dots { position: fixed; right: 1rem; top: 50%; transform: translateY(-50%); z-index: 40; display: flex; flex-direction: column; gap: 0.75rem; }
+        @media (min-width: 768px) { #nav-dots { right: 2rem; gap: 1rem; } }
+        .dot { width: 8px; height: 8px; border-radius: 50%; border: 1px solid rgba(34, 211, 238, 0.5); transition: all 0.3s; cursor: pointer; }
+        @media (min-width: 768px) { .dot { width: 10px; height: 10px; } }
+        .dot.active { background: #22d3ee; box-shadow: 0 0 15px #22d3ee; transform: scale(1.5); }
+    </style>
+</head>
+<body class="selection:bg-cyan-500 selection:text-black">
+
+    <!-- Preloader -->
+    <div id="preloader"><div class="spinner"></div></div>
+
+    <!-- 3D Environment -->
+    <canvas id="vfx-canvas" class="fixed top-0 left-0 w-full h-full z-0 pointer-events-none"></canvas>
+    <div id="warp-flash"></div>
+
+    <!-- Pagination Dots -->
+    <div id="nav-dots">
+        <div class="dot active"></div><div class="dot"></div><div class="dot"></div>
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    </div>
+
+    <!-- Scene Container -->
+    <div id="scene-container">
+        
+        <!-- 0: Hero Welcome -->
+        <section class="vfx-section active" data-index="0">
+            <div class="flex flex-col items-center justify-center text-center w-full px-2">
+                <div id="animated-title" class="text-4xl md:text-6xl lg:text-7xl flex flex-col items-center text-center w-full leading-tight uppercase tracking-wide gap-y-2 md:gap-y-6">
+                    <!-- JS Injected -->
+                </div>
+                <p class="scroll-hint mt-12 md:mt-16 text-cyan-300 text-xs md:text-base tracking-[0.3em] md:tracking-[0.5em] uppercase opacity-0 font-light drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]">
+                    Swipe or Scroll to Time Travel
+                </p>
+                <div class="scroll-arrow absolute bottom-10 md:bottom-20 opacity-0 animate-bounce">
+                    <svg class="w-8 h-8 md:w-10 md:h-10 text-cyan-400 drop-shadow-[0_0_15px_rgba(34,211,238,1)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+                </div>
+            </div>
+        </section>
+
+        <!-- 1: Career Summary -->
+        <section class="vfx-section" data-index="1">
+            <div class="max-w-4xl w-full">
+                <div class="glass-panel p-6 md:p-14 rounded-2xl md:rounded-3xl w-full">
+                    <div class="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
+                        <div class="w-8 md:w-12 h-[2px] bg-cyan-400 shadow-[0_0_10px_#22d3ee]"></div>
+                        <h2 class="text-2xl md:text-5xl font-bold text-white tracking-wider uppercase drop-shadow-lg">Career Summary</h2>
+                    </div>
+                    <p class="text-gray-300 leading-relaxed text-base md:text-2xl font-light">
+                        Final-year <span class="text-cyan-400 font-semibold drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]">Computer Science Engineering</span> student with hands-on experience in MERN Stack development, Al-powered applications, and SQL. Strong analytical, problem-solving, and communication skills with an interest in Software Development, Technology Consulting, and Business Consulting.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2: Education -->
+        <section class="vfx-section" data-index="2">
+            <div class="max-w-4xl w-full">
+                <div class="glass-panel p-6 md:p-14 rounded-2xl md:rounded-3xl w-full">
+                    <div class="flex items-center gap-3 md:gap-4 mb-6 md:mb-10">
+                        <div class="w-8 md:w-12 h-[2px] bg-cyan-400 shadow-[0_0_10px_#22d3ee]"></div>
+                        <h2 class="text-2xl md:text-5xl font-bold text-white tracking-wider uppercase drop-shadow-lg">Education</h2>
+                    </div>
+                    <div class="relative timeline-line pl-6 md:pl-8 space-y-8 md:space-y-10">
+                        <div class="relative">
+                            <div class="absolute -left-[29px] md:-left-[37px] top-1.5 md:top-2 w-3 h-3 md:w-4 md:h-4 bg-cyan-400 rounded-full shadow-[0_0_15px_#22d3ee]"></div>
+                            <h3 class="text-lg md:text-2xl font-semibold text-white">B.Tech in Computer Science and Engineering</h3>
+                            <p class="text-cyan-300/80 text-sm md:text-lg mt-1">Siksha 'O' Anusandhan University | <span class="text-gray-400 block md:inline">CGPA: 8.44 | 2027</span></p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[29px] md:-left-[35px] top-1.5 w-3 h-3 bg-gray-900 border-2 border-cyan-400 rounded-full"></div>
+                            <h3 class="text-base md:text-xl font-semibold text-white">12th PCM (CHSE Odisha)</h3>
+                            <p class="text-gray-400 text-sm md:text-base">Vikash Higher Secondary School | 83%</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[29px] md:-left-[35px] top-1.5 w-3 h-3 bg-gray-900 border-2 border-cyan-400 rounded-full"></div>
+                            <h3 class="text-base md:text-xl font-semibold text-white">10th (BSE Odisha)</h3>
+                            <p class="text-gray-400 text-sm md:text-base">Panchayat High School | 81.66%</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3: Skills -->
+        <section class="vfx-section" data-index="3">
+            <div class="max-w-4xl w-full">
+                <div class="glass-panel p-6 md:p-14 rounded-2xl md:rounded-3xl w-full">
+                    <div class="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
+                        <div class="w-8 md:w-12 h-[2px] bg-cyan-400 shadow-[0_0_10px_#22d3ee]"></div>
+                        <h2 class="text-2xl md:text-5xl font-bold text-white tracking-wider uppercase drop-shadow-lg">Technical Skills</h2>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                        <div>
+                            <h4 class="text-cyan-400 text-xs md:text-sm tracking-widest uppercase mb-3 border-b border-white/10 pb-2">Programming</h4>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="px-3 py-1 bg-white/5 border border-cyan-500/30 rounded-lg text-white text-sm">Java</span>
+                                <span class="px-3 py-1 bg-white/5 border border-cyan-500/30 rounded-lg text-white text-sm">Python</span>
+                                <span class="px-3 py-1 bg-white/5 border border-cyan-500/30 rounded-lg text-white text-sm">JavaScript</span>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="text-cyan-400 text-xs md:text-sm tracking-widest uppercase mb-3 border-b border-white/10 pb-2">Web Technologies</h4>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="px-3 py-1 bg-white/5 border border-cyan-500/30 rounded-lg text-white text-sm">React.js</span>
+                                <span class="px-3 py-1 bg-white/5 border border-cyan-500/30 rounded-lg text-white text-sm">Node.js</span>
+                                <span class="px-3 py-1 bg-white/5 border border-cyan-500/30 rounded-lg text-white text-sm">Express.js</span>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="text-cyan-400 text-xs md:text-sm tracking-widest uppercase mb-3 border-b border-white/10 pb-2">Databases</h4>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="px-3 py-1 bg-white/5 border border-cyan-500/30 rounded-lg text-white text-sm">MongoDB</span>
+                                <span class="px-3 py-1 bg-white/5 border border-cyan-500/30 rounded-lg text-white text-sm">MySQL</span>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="text-cyan-400 text-xs md:text-sm tracking-widest uppercase mb-3 border-b border-white/10 pb-2">Core Concepts</h4>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="px-3 py-1 bg-white/5 border border-cyan-500/30 rounded-lg text-white text-sm">OS</span>
+                                <span class="px-3 py-1 bg-white/5 border border-cyan-500/30 rounded-lg text-white text-sm">DBMS</span>
+                                <span class="px-3 py-1 bg-white/5 border border-cyan-500/30 rounded-lg text-white text-sm">Computer Networks</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4: Projects -->
+        <section class="vfx-section" data-index="4">
+            <div class="max-w-5xl w-full">
+                <div class="glass-panel p-6 md:p-12 rounded-2xl md:rounded-3xl w-full">
+                    <div class="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
+                        <div class="w-8 md:w-12 h-[2px] bg-cyan-400 shadow-[0_0_10px_#22d3ee]"></div>
+                        <h2 class="text-2xl md:text-5xl font-bold text-white tracking-wider uppercase drop-shadow-lg">Projects</h2>
+                    </div>
+                    <div class="space-y-4 md:space-y-6">
+                        <div class="bg-black/30 p-4 md:p-6 rounded-xl border border-cyan-500/20">
+                            <div class="flex flex-col md:flex-row justify-between items-start mb-2 gap-2">
+                                <h3 class="text-lg md:text-2xl font-bold text-white">Institutional Knowledge Retrieval System</h3>
+                                <span class="text-xs md:text-sm text-cyan-400 font-mono bg-cyan-900/30 px-2 py-1 rounded w-fit">June 2026</span>
+                            </div>
+                            <p class="text-cyan-300 text-xs md:text-sm mb-3">TCS Xcelerate - Capstone (RAG AI Chatbot)</p>
+                            <ul class="list-disc list-outside ml-4 space-y-1 text-gray-300 text-sm md:text-base">
+                                <li>Developed an Al-powered System using RAG with LangChain, FastAPI, and a vector database.</li>
+                                <li>Implemented document ingestion, chunking, and semantic retrieval for accurate responses.</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="bg-black/30 p-4 md:p-6 rounded-xl border border-cyan-500/20">
+                            <div class="flex flex-col md:flex-row justify-between items-start mb-2 gap-2">
+                                <h3 class="text-lg md:text-2xl font-bold text-white">Smart Stock - Inventory Management</h3>
+                                <span class="text-xs md:text-sm text-cyan-400 font-mono bg-cyan-900/30 px-2 py-1 rounded w-fit">Feb 2026</span>
+                            </div>
+                            <ul class="list-disc list-outside ml-4 space-y-1 text-gray-300 text-sm md:text-base mt-2">
+                                <li>Developed a full-stack inventory management system using the MERN Stack.</li>
+                                <li>Designed an interactive React-based dashboard to monitor inventory levels.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 5: Certs & Extra -->
+        <section class="vfx-section" data-index="5">
+            <div class="max-w-5xl w-full">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+                    <div class="glass-panel p-6 md:p-8 rounded-2xl w-full">
+                        <div class="flex items-center gap-3 mb-4 md:mb-6">
+                            <div class="w-6 h-[2px] bg-cyan-400"></div>
+                            <h2 class="text-xl md:text-3xl font-bold text-white tracking-wider uppercase">Certifications</h2>
+                        </div>
+                        <div>
+                            <h3 class="text-base md:text-xl text-cyan-300 font-semibold mb-2">Fortinet Certified Professional - Security Operations</h3>
+                            <p class="text-gray-300 leading-relaxed text-sm md:text-lg">
+                                Expertise in security operations, threat detection, incident analysis, and management of Fortinet Security Fabric solutions.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-6 md:p-8 rounded-2xl w-full">
+                        <div class="flex items-center gap-3 mb-4 md:mb-6">
+                            <div class="w-6 h-[2px] bg-cyan-400"></div>
+                            <h2 class="text-xl md:text-3xl font-bold text-white tracking-wider uppercase">Extracurricular</h2>
+                        </div>
+                        <ul class="space-y-4">
+                            <li class="text-gray-300 text-sm md:text-lg">
+                                <strong class="text-white block mb-1 text-base md:text-xl">National Youth Parliament</strong>
+                                Participated at Odisha Legislative Assembly, demonstrating public speaking and policy analysis.
+                            </li>
+                            <li class="text-gray-300 text-sm md:text-lg">
+                                <strong class="text-white block mb-1 text-base md:text-xl">Jay Ghosh Youth Conclave</strong>
+                                Represented at Bharat Mandapam, New Delhi.
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 6: Thank You / Outro -->
+        <section class="vfx-section" data-index="6">
+            <div class="flex flex-col items-center justify-center text-center w-full px-4">
+                <h2 class="text-5xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 drop-shadow-[0_0_25px_rgba(34,211,238,0.5)] mb-4 md:mb-6 uppercase tracking-widest">
+                    Thank You
+                </h2>
+                <p class="text-gray-300 text-base md:text-2xl font-light mb-10 md:mb-12 max-w-2xl">
+                    For exploring my digital universe. Let's build something amazing together.
+                </p>
+                
+                <a href="mailto:mishraayush811803@gmail.com" class="relative inline-flex items-center justify-center px-6 py-3 md:px-8 md:py-4 text-base md:text-lg font-bold text-white transition-all duration-300 bg-cyan-500/10 border border-cyan-400 rounded-full hover:bg-cyan-400 hover:text-black shadow-[0_0_20px_rgba(34,211,238,0.4)] hover:shadow-[0_0_40px_rgba(34,211,238,0.8)] mb-8">
+                    Initiate Contact
+                </a>
+                
+                <div class="flex flex-wrap justify-center gap-4 text-xs md:text-sm text-gray-400 bg-black/40 px-6 py-3 rounded-full border border-white/5">
+                    <span>mishraayush811803@gmail.com</span>
+                    <span class="text-cyan-500/50">|</span>
+                    <span>(+91) 6372190007</span>
+                    <span class="text-cyan-500/50">|</span>
+                    <a href="#" class="hover:text-cyan-400 transition-colors">LinkedIn</a>
+                    <span class="text-cyan-500/50">|</span>
+                    <a href="#" class="hover:text-cyan-400 transition-colors">GitHub</a>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Application Logic -->
+    <script>
+        gsap.registerPlugin(Observer);
+
+        // 1. Text Parsing
+        const titleEl = document.getElementById('animated-title');
+        const wrapText = text => text.split(' ').map(word => `<span class="word-wrap">${word.split('').map(char => `<span class="char">${char}</span>`).join('')}</span><span class="inline-block w-2 md:w-5"></span>`).join('');
+        titleEl.innerHTML = `<div class="w-full">${wrapText("WELCOME TO")}</div><div class="w-full">${wrapText("AYUSH MISHRA'S PORTFOLIO")}</div>`;
+
+        // 2. Three.js Engine
+        const canvas = document.getElementById('vfx-canvas');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x020204, 0.03);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        const isMobile = window.innerWidth < 768;
+        const particlesCount = isMobile ? 1200 : 3500;
+        const particlesGeometry = new THREE.BufferGeometry();
+        const posArray = new Float32Array(particlesCount * 3);
+        
+        for(let i = 0; i < particlesCount * 3; i += 3) {
+            posArray[i] = (Math.random() - 0.5) * 40;     
+            posArray[i+1] = (Math.random() - 0.5) * 40;   
+            posArray[i+2] = (Math.random() - 0.5) * 100;  
+        }
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const particlesMaterial = new THREE.PointsMaterial({ size: 0.06, color: 0x22d3ee, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
+        const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particlesMesh);
+        camera.position.z = 20;
+
+        let baseSpeed = 0.02, warpEngine = { speedMultiplier: 1 }, mouseX = 0, mouseY = 0;
+
+        document.addEventListener('mousemove', e => {
+            if(isMobile) return;
+            mouseX = (e.clientX / window.innerWidth) - 0.5;
+            mouseY = (e.clientY / window.innerHeight) - 0.5;
+        });
+
+        function animateStars() {
+            requestAnimationFrame(animateStars);
+            if(!isMobile) {
+                particlesMesh.rotation.y += (mouseX * 0.3 - particlesMesh.rotation.y) * 0.05;
+                particlesMesh.rotation.x += (mouseY * 0.3 - particlesMesh.rotation.x) * 0.05;
+            }
+
+            const positions = particlesGeometry.attributes.position.array;
+            const currentSpeed = baseSpeed * warpEngine.speedMultiplier;
+            const count = particlesCount * 3;
+            
+            for(let i = 2; i < count; i += 3) {
+                positions[i] += currentSpeed;
+                // Seamless Looping Math Fix
+                if (positions[i] > 25) {
+                    positions[i] -= 100; 
+                    positions[i-2] = (Math.random() - 0.5) * 40; 
+                    positions[i-1] = (Math.random() - 0.5) * 40; 
+                } else if (positions[i] < -75) {
+                    positions[i] += 100; 
+                    positions[i-2] = (Math.random() - 0.5) * 40; 
+                    positions[i-1] = (Math.random() - 0.5) * 40; 
+                }
+            }
+            particlesGeometry.attributes.position.needsUpdate = true;
+            renderer.render(scene, camera);
+        }
+        animateStars();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // 3. Application Initialization & Preloader Removal
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const preloader = document.getElementById('preloader');
+                preloader.style.opacity = '0';
+                setTimeout(() => preloader.remove(), 800);
+
+                // Start Hero Intro
+                gsap.fromTo('.char', 
+                    { x: () => (Math.random() - 0.5) * window.innerWidth * 1.5, y: () => (Math.random() - 0.5) * window.innerHeight * 1.5, z: () => (Math.random() * 600) - 300, rotationX: () => (Math.random() * 720) - 360, rotationY: () => (Math.random() * 720) - 360, rotationZ: () => (Math.random() * 720) - 360, opacity: 0, scale: () => Math.random() * 3 + 1 },
+                    { x: 0, y: 0, z: 0, rotationX: 0, rotationY: 0, rotationZ: 0, opacity: 1, scale: 1, duration: 2.5, ease: "expo.out", stagger: { amount: 1.5, from: "random" }, delay: 0.2 }
+                );
+                gsap.to('.scroll-hint', { opacity: 1, duration: 1.5, delay: 2.5, ease: "power2.out" });
+                gsap.to('.scroll-arrow', { opacity: 1, duration: 1, delay: 3, bottom: '2rem', ease: "back.out(1.7)" });
+            }, 300); // Small buffer to ensure rendering pipeline is ready
+        });
+
+        // 4. Time Travel Logic (Strict GSAP Timeline to prevent Race Conditions)
+        let currentIndex = 0, isAnimating = false;
+        const sections = document.querySelectorAll('.vfx-section'), dots = document.querySelectorAll('.dot'), totalSections = sections.length;
+
+        function timeTravelToTarget(targetIndex) {
+            if(isAnimating || targetIndex === currentIndex || targetIndex < 0 || targetIndex >= totalSections) return;
+            
+            isAnimating = true; // Lock UI globally
+            const currentSection = sections[currentIndex];
+            const nextSection = sections[targetIndex];
+            const isForward = targetIndex > currentIndex;
+            const animDuration = 0.9;
+            
+            dots.forEach(d => d.classList.remove('active'));
+            dots[targetIndex].classList.add('active');
+            nextSection.style.visibility = 'visible';
+
+            // Master Timeline ensures flawless synchronization 
+            const tl = gsap.timeline({
+                onComplete: () => {
+                    currentSection.classList.remove('active');
+                    currentSection.style.visibility = 'hidden';
+                    nextSection.classList.add('active');
+                    isAnimating = false; // Unlock UI securely
+                }
+            });
+
+            tl.to(warpEngine, { speedMultiplier: isForward ? 80 : -80, duration: animDuration * 0.4, ease: "power2.inOut" }, 0)
+              .to(camera, { fov: 110, duration: animDuration * 0.4, ease: "power2.inOut", onUpdate: () => camera.updateProjectionMatrix() }, 0)
+              .to('#warp-flash', { opacity: 0.15, duration: 0.15, yoyo: true, repeat: 1 }, animDuration * 0.3)
+              .to(currentSection, { z: isForward ? 1500 : -3000, opacity: 0, duration: animDuration * 0.6, ease: "power2.in" }, 0)
+              .fromTo(nextSection, { z: isForward ? -3000 : 1500, opacity: 0 }, { z: 0, opacity: 1, duration: animDuration, ease: "expo.out" }, animDuration * 0.4)
+              .to(warpEngine, { speedMultiplier: 1, duration: animDuration * 0.6, ease: "power3.out" }, animDuration * 0.4)
+              .to(camera, { fov: 75, duration: animDuration * 0.6, ease: "power3.out", onUpdate: () => camera.updateProjectionMatrix() }, animDuration * 0.4);
+
+            currentIndex = targetIndex;
+        }
+
+        // 5. Smart Event Observers
+        function isScrollingInsidePanel(e) {
+            const panel = e.target.closest('.glass-panel');
+            if(!panel) return false;
+            const isAtTop = panel.scrollTop <= 1;
+            const isAtBottom = Math.abs(panel.scrollHeight - panel.scrollTop - panel.clientHeight) <= 1;
+            if(e.deltaY > 0 && !isAtBottom) return true;
+            if(e.deltaY < 0 && !isAtTop) return true;
+            return false;
+        }
+
+        Observer.create({
+            target: window, type: "wheel,touch,pointer", wheelSpeed: -1, tolerance: 30, preventDefault: false,
+            onUp: (self) => { if(!isScrollingInsidePanel(self.event) && !isAnimating) timeTravelToTarget(currentIndex + 1); },
+            onDown: (self) => { if(!isScrollingInsidePanel(self.event) && !isAnimating) timeTravelToTarget(currentIndex - 1); }
+        });
+
+        dots.forEach((dot, index) => dot.addEventListener('click', () => { if(!isAnimating) timeTravelToTarget(index); }));
+    </script>
+</body>
+</html>
