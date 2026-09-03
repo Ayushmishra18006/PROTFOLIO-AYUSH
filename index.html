@@ -28,7 +28,6 @@
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             opacity: 0; visibility: hidden; padding: 1rem;
-            /* Hardware acceleration fixes */
             transform: translateZ(-3000px); 
             will-change: transform, opacity;
             backface-visibility: hidden;
@@ -43,7 +42,6 @@
             border: 1px solid rgba(34, 211, 238, 0.15); 
             box-shadow: 0 0 30px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(34, 211, 238, 0.05);
             max-height: 85vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
-            /* Force GPU render for smooth flight */
             transform: translate3d(0, 0, 0);
         }
         
@@ -67,6 +65,7 @@
         .dot { width: 8px; height: 8px; border-radius: 50%; border: 1px solid rgba(34, 211, 238, 0.5); transition: all 0.3s; cursor: pointer; }
         @media (min-width: 768px) { .dot { width: 10px; height: 10px; } }
         .dot.active { background: #22d3ee; box-shadow: 0 0 15px #22d3ee; transform: scale(1.5); }
+        .dot.disabled { opacity: 0.3; cursor: not-allowed; border-color: rgba(255,255,255,0.2); }
     </style>
 </head>
 <body class="selection:bg-cyan-500 selection:text-black">
@@ -347,7 +346,6 @@
             
             for(let i = 2; i < count; i += 3) {
                 positions[i] += currentSpeed;
-                // Seamless Looping Math Fix
                 if (positions[i] > 25) {
                     positions[i] -= 100; 
                     positions[i-2] = (Math.random() - 0.5) * 40; 
@@ -376,48 +374,54 @@
                 preloader.style.opacity = '0';
                 setTimeout(() => preloader.remove(), 800);
 
-                // Start Hero Intro
                 gsap.fromTo('.char', 
                     { x: () => (Math.random() - 0.5) * window.innerWidth * 1.5, y: () => (Math.random() - 0.5) * window.innerHeight * 1.5, z: () => (Math.random() * 600) - 300, rotationX: () => (Math.random() * 720) - 360, rotationY: () => (Math.random() * 720) - 360, rotationZ: () => (Math.random() * 720) - 360, opacity: 0, scale: () => Math.random() * 3 + 1 },
                     { x: 0, y: 0, z: 0, rotationX: 0, rotationY: 0, rotationZ: 0, opacity: 1, scale: 1, duration: 2.5, ease: "expo.out", stagger: { amount: 1.5, from: "random" }, delay: 0.2 }
                 );
                 gsap.to('.scroll-hint', { opacity: 1, duration: 1.5, delay: 2.5, ease: "power2.out" });
                 gsap.to('.scroll-arrow', { opacity: 1, duration: 1, delay: 3, bottom: '2rem', ease: "back.out(1.7)" });
-            }, 300); // Small buffer to ensure rendering pipeline is ready
+            }, 300); 
         });
 
-        // 4. Time Travel Logic (Strict GSAP Timeline to prevent Race Conditions)
+        // 4. One-Way Time Travel Logic 
         let currentIndex = 0, isAnimating = false;
         const sections = document.querySelectorAll('.vfx-section'), dots = document.querySelectorAll('.dot'), totalSections = sections.length;
 
+        function disablePreviousDots(index) {
+            for(let i = 0; i <= index; i++) {
+                if(i < index) dots[i].classList.add('disabled');
+                dots[i].classList.remove('active');
+            }
+            dots[index].classList.add('active');
+            dots[index].classList.remove('disabled');
+        }
+
         function timeTravelToTarget(targetIndex) {
-            if(isAnimating || targetIndex === currentIndex || targetIndex < 0 || targetIndex >= totalSections) return;
+            // STRICT ENFORCEMENT: ONLY allow target indexes GREATER than current index (forward only)
+            if(isAnimating || targetIndex <= currentIndex || targetIndex >= totalSections) return;
             
-            isAnimating = true; // Lock UI globally
+            isAnimating = true; 
             const currentSection = sections[currentIndex];
             const nextSection = sections[targetIndex];
-            const isForward = targetIndex > currentIndex;
             const animDuration = 0.9;
             
-            dots.forEach(d => d.classList.remove('active'));
-            dots[targetIndex].classList.add('active');
+            disablePreviousDots(targetIndex);
             nextSection.style.visibility = 'visible';
 
-            // Master Timeline ensures flawless synchronization 
             const tl = gsap.timeline({
                 onComplete: () => {
                     currentSection.classList.remove('active');
                     currentSection.style.visibility = 'hidden';
                     nextSection.classList.add('active');
-                    isAnimating = false; // Unlock UI securely
+                    isAnimating = false; 
                 }
             });
 
-            tl.to(warpEngine, { speedMultiplier: isForward ? 80 : -80, duration: animDuration * 0.4, ease: "power2.inOut" }, 0)
+            tl.to(warpEngine, { speedMultiplier: 80, duration: animDuration * 0.4, ease: "power2.inOut" }, 0)
               .to(camera, { fov: 110, duration: animDuration * 0.4, ease: "power2.inOut", onUpdate: () => camera.updateProjectionMatrix() }, 0)
               .to('#warp-flash', { opacity: 0.15, duration: 0.15, yoyo: true, repeat: 1 }, animDuration * 0.3)
-              .to(currentSection, { z: isForward ? 1500 : -3000, opacity: 0, duration: animDuration * 0.6, ease: "power2.in" }, 0)
-              .fromTo(nextSection, { z: isForward ? -3000 : 1500, opacity: 0 }, { z: 0, opacity: 1, duration: animDuration, ease: "expo.out" }, animDuration * 0.4)
+              .to(currentSection, { z: 1500, opacity: 0, duration: animDuration * 0.6, ease: "power2.in" }, 0)
+              .fromTo(nextSection, { z: -3000, opacity: 0 }, { z: 0, opacity: 1, duration: animDuration, ease: "expo.out" }, animDuration * 0.4)
               .to(warpEngine, { speedMultiplier: 1, duration: animDuration * 0.6, ease: "power3.out" }, animDuration * 0.4)
               .to(camera, { fov: 75, duration: animDuration * 0.6, ease: "power3.out", onUpdate: () => camera.updateProjectionMatrix() }, animDuration * 0.4);
 
@@ -428,20 +432,24 @@
         function isScrollingInsidePanel(e) {
             const panel = e.target.closest('.glass-panel');
             if(!panel) return false;
-            const isAtTop = panel.scrollTop <= 1;
             const isAtBottom = Math.abs(panel.scrollHeight - panel.scrollTop - panel.clientHeight) <= 1;
+            // Only care about native downward scroll prevention here since backward is fully disabled
             if(e.deltaY > 0 && !isAtBottom) return true;
-            if(e.deltaY < 0 && !isAtTop) return true;
             return false;
         }
 
         Observer.create({
             target: window, type: "wheel,touch,pointer", wheelSpeed: -1, tolerance: 30, preventDefault: false,
-            onUp: (self) => { if(!isScrollingInsidePanel(self.event) && !isAnimating) timeTravelToTarget(currentIndex + 1); },
-            onDown: (self) => { if(!isScrollingInsidePanel(self.event) && !isAnimating) timeTravelToTarget(currentIndex - 1); }
+            onUp: (self) => { 
+                if(!isScrollingInsidePanel(self.event) && !isAnimating) timeTravelToTarget(currentIndex + 1); 
+            }
+            // onDown logic removed completely - no backward scrolling allowed
         });
 
-        dots.forEach((dot, index) => dot.addEventListener('click', () => { if(!isAnimating) timeTravelToTarget(index); }));
+        dots.forEach((dot, index) => dot.addEventListener('click', () => { 
+            // Only allow clicks if the target dot is ahead of the current view
+            if(!isAnimating && index > currentIndex) timeTravelToTarget(index); 
+        }));
     </script>
 </body>
 </html>
